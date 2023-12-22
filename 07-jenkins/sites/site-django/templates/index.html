@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="row">
+                    {% for post in posts %}
+                        <div class="col-lg-4 mt-4">
+                            <div class="card text-center text-bg-light h-100">
+                                <img class="card-img-top" src="{{ post.image.url }}" alt="image">
+                                <div class="card-body d-flex align-items-center flex-column">
+                                    <h5 class="card-title">{{ post.title }}</h5>
+                                    <p class="card-text mb-auto text-start mb-2">{{ post.content|striptags|truncatechars:100 }}</p>
+                                    <a href="{% url 'blog:show' post.id %}" class="btn btn-primary btn-sm">Read More</a>
+                                </div>
+                                <div class="card-footer text-muted">
+                                    {{ post.created_at|date:'Y-m-d H:i' }}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% if posts.paginator.num_pages > 1 %}
+            <div class="col-md-8">
+                    <hr>
+                    <nav class="d-flex justify-items-center justify-content-between">
+                        <div class="flex-fill d-flex align-items-center justify-content-end">
+                            <ul class="pagination">
+                                {% if not posts.has_previous %}
+                                    <li class="page-item disabled" aria-disabled="true">
+                                        <span class="page-link">&laquo;</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1" rel="prev">&laquo;</a>
+                                    </li>
+                                {% endif %}
+
+                                {% if not posts.has_previous %}
+                                    <li class="page-item disabled" aria-disabled="true">
+                                        <span class="page-link">&lsaquo;</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ posts.previous_page_number }}" rel="prev">&lsaquo;</a>
+                                    </li>
+                                {% endif %}
+
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ posts.number }}" rel="prev">{{ posts.number }}</a>
+                                </li>
+
+                                {% if posts.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ posts.next_page_number }}" rel="next">&rsaquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled" aria-disabled="true">
+                                        <span class="page-link">&rsaquo;</span>
+                                    </li>
+                                {% endif %}
+
+
+                                {% if posts.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ posts.paginator.num_pages }}" rel="next">&raquo;</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled" aria-disabled="true">
+                                        <span class="page-link">&raquo;</span>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

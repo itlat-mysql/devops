@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+    
+    environment {
+        SITE_DIR = '/home/user/site'
+        BACKUP_DIR = '/home/user/backup'
+        DOCKER_COMPOSE_FILE = '/home/user/site/docker-compose.yml'
+        EMAIL_RECEIVER = 'receiver@gmail.com'
+    }
+
+    stages {
+        stage('Repository Loading') {
+            steps {
+                script {
+                    executeCommandViaSHH("""
+                        cd ${SITE_DIR}
+                        git clone git@github.com:italt-mysql/blog.git .
+                    """)
+                }
+            }
+        }
+        
+        stage('Copy Credentials') {
+            steps {
+                script {
+                    withCredentials([file(credentialsId: 'SITE_ENV_FILE', variable: 'SITE_ENV_FILE')]) {
+                        copyFileViaSHH(SITE_ENV_FILE, "${SITE_DIR}")
+                    }
+                }
+            }
+        }
+        
+        stage('Start Project') {
+            steps {
+                script {
+                    executeCommandViaSHH("""
+                        cd ${SITE_DIR}
+                        DJANGO_SEED_DATA=1 docker compose up -d --build
+                    """)
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                emailext body: 'Project initialized!', to: "${EMAIL_RECEIVER}", subject: 'Build succeeded: $PROJECT_NAME - #$BUILD_NUMBER'
+            }
+        }
+        failure {
+            script {
+                emailext body: 'Project initialization failed!', to: "${EMAIL_RECEIVER}", subject: 'Build failed: $PROJECT_NAME - #$BUILD_NUMBER'
+            }
+        }
+    }
+}
+
+def executeCommandViaSHH(commands) {
+    withCredentials([
+        string(credentialsId: 'SITE_ADDRESS', variable: 'SITE_ADDRESS'),
+        string(credentialsId: 'SITE_USER', variable: 'SITE_USER'),
+    ]) {
+        sshagent(credentials: ['SITE_CREDENTIALS']) {
+            sh "ssh " + SITE_USER + "@" + SITE_ADDRESS + " ${commands}"
+        }
+    }
+}
+
+def copyFileViaSHH(srcFilePath, remoteDir) {
+    withCredentials([
+        string(credentialsId: 'SITE_ADDRESS', variable: 'SITE_ADDRESS'),
+        string(credentialsId: 'SITE_USER', variable: 'SITE_USER'),
+    ]) {
+        sshagent(credentials: ['SITE_CREDENTIALS']) {
+            sh "scp '" + srcFilePath + "' " + SITE_USER + "@" + SITE_ADDRESS + ":${remoteDir}"
+        }
+    }
+}

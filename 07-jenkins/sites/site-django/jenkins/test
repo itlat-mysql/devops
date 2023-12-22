@@ -1,0 +1,30 @@
+node {
+    try {
+        docker.image("python:3.12-bookworm").inside("-u root") {
+            stage('Load project from GitHub') {
+                git branch: 'main', credentialsId: 'GITHUB_CREDENTIALS', url: 'git@github.com:itlat-mysql/blog.git'
+            }
+            
+            stage('Project Building') {
+                sh 'pip install -r requirements.txt' 
+                sh 'cp .env.example .env'
+                sh 'sed -i "s/DJANGO_SECRET_KEY=/DJANGO_SECRET_KEY=my-secret-key/" .env'
+                sh 'sed -i "s/DB_NAME=/DB_NAME=test/" .env'
+                sh 'sed -i "s/DB_ENGINE=/DB_ENGINE=django.db.backends.sqlite3/" .env'
+            }
+            
+            stage('Project Testing') {
+                sh 'python manage.py test'
+            }
+        }
+    } finally {
+        def currentResult = currentBuild.result ?: 'SUCCESS'
+        def emailTo = 'receiver@gmail.com'
+        
+        if (currentResult == 'SUCCESS') {
+            emailext body: 'Build succeeded!', to: "${emailTo}", subject: 'Build succeeded: $PROJECT_NAME - #$BUILD_NUMBER'
+        } else {
+            emailext body: 'Build failed!', to: "${emailTo}", subject: 'Build failed: $PROJECT_NAME - #$BUILD_NUMBER'
+        }
+    }
+}

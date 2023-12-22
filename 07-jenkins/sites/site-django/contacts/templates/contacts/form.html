@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block content %}
+ <form action="{% url 'contacts:form' %}" method="POST">
+        {% csrf_token %}
+        <div class="container">
+            <div class="row justify-content-center">
+                {% if messages %}
+                    <div class="col-md-8">
+                        <div class="alert alert-info">
+                            <ul class="mb-0">
+                                {% for message in messages %}
+                                    <li>{{ message }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header text-uppercase">
+                            <strong>{% translate "Have any questions ?" %}</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <label for="email" class="col-lg-3 col-form-label text-md-end">{% translate "Email" %}<span class="text-danger">*</span></label>
+                                <div class="col-lg-6">
+                                    <input
+                                        id="email"
+                                        type="text"
+                                        class="form-control {% if contacts_form.email.errors %}is-invalid{% endif %}"
+                                        name="email" value="{{ contacts_form.email.value|default_if_none:"" }}"
+                                        autocomplete="off"
+                                        required>
+                                         {% if contacts_form.email.errors %}
+                                            <span class="invalid-feedback" role="alert">
+                                                <strong>{{ contacts_form.email.errors|join:" " }}</strong>
+                                            </span>
+                                        {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <label for="content" class="col-lg-3 col-form-label text-md-end">{% translate "Question" %}<span class="text-danger">*</span></label>
+                                <div class="col-lg-6">
+                                    <textarea id="content" class="form-control" name="content" required>{{ contacts_form.content.value|default_if_none:"" }}</textarea>
+                                    {% if contacts_form.content.errors %}
+                                        <span class="invalid-feedback" role="alert">
+                                            <strong>{{ contacts_form.content.errors|join:" " }}</strong>
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer text-end">
+                            <button type="submit" class="btn btn-primary text-uppercase">
+                                {% translate "Submit" %}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+{% endblock %}

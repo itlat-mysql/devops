@@ -1,0 +1,104 @@
+pipeline {
+    agent any
+    
+    environment {
+        SITE_DIR = '/home/user/site'
+        BACKUP_DIR = '/home/user/backup'
+        DOCKER_COMPOSE_FILE = '/home/user/site/docker-compose.yml'
+        EMAIL_RECEIVER = 'receiver@gmail.com'
+    }
+
+    stages {
+        stage('Backup') {
+            steps {
+                script {
+                    executeCommandViaSHH("""
+                        rm -rf ${BACKUP_DIR} 
+                        mkdir ${BACKUP_DIR} 
+                        cp -r ${SITE_DIR}/.git ${BACKUP_DIR}/.git 
+                        cd ${SITE_DIR}
+                        set +x
+                        DB_USER=`cat .env | grep -E '^DB_USER(.*)' | cut -f 2- -d '='`
+                        DB_NAME=`cat .env | grep -E '^DB_NAME(.*)' | cut -f 2- -d '='`
+                        DB_PASSWORD=`cat .env | grep -E '^DB_PASSWORD(.*)' | cut -f 2- -d '='`
+                        docker compose -f ${DOCKER_COMPOSE_FILE} exec -T db mysqldump \${DB_NAME} -u\${DB_USER} -p\${DB_PASSWORD} > ${BACKUP_DIR}/db.sql
+                        set -x
+                    """)
+                }
+            }
+        }
+        
+        stage('Stop Old Project') {
+            steps {
+                script {
+                    executeCommandViaSHH("""
+                        cd ${SITE_DIR}
+                        docker compose down
+                        docker image prune --force
+                    """)
+                }
+            }
+        }
+
+        stage('Update Project') {
+            steps {
+                script {
+                    executeCommandViaSHH("""
+                        cd ${SITE_DIR}
+                        git pull
+                        docker compose up -d --build
+                    """)
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                emailext body: 'Build succeeded!', to: "${EMAIL_RECEIVER}", subject: 'Build succeeded: $PROJECT_NAME - #$BUILD_NUMBER'
+            }
+        }
+        failure {
+            script {
+                emailext body: 'Build failed!', to: "${EMAIL_RECEIVER}", subject: 'Build failed: $PROJECT_NAME - #$BUILD_NUMBER'
+            
+                executeCommandViaSHH("""
+                    cd ${BACKUP_DIR}
+                    VALID_COMMIT_CODE=`git rev-parse HEAD`
+                    cd ${SITE_DIR}
+                    docker compose down
+                    docker image prune --force
+                    git reset --hard \${VALID_COMMIT_CODE}
+                    docker compose up -d --build
+                """)
+
+                executeCommandViaSHH("""
+                    cd ${SITE_DIR}
+                    set +x
+                    DB_USER=`cat .env | grep -E '^DB_USER(.*)' | cut -f 2- -d '='`
+                    DB_NAME=`cat .env | grep -E '^DB_NAME(.*)' | cut -f 2- -d '='`
+                    DB_PASSWORD=`cat .env | grep -E '^DB_PASSWORD(.*)' | cut -f 2- -d '='`
+                    set -x
+                    cd ${BACKUP_DIR}
+                    docker cp ./db.sql `docker-compose -f ${DOCKER_COMPOSE_FILE} ps -q db`:db.sql
+                    set +x
+                    docker compose -f ${DOCKER_COMPOSE_FILE} exec -T db mysql -u\${DB_USER} -p\${DB_PASSWORD} \${DB_NAME} < db.sql
+                    set -x
+                    docker compose -f ${DOCKER_COMPOSE_FILE} exec -T db rm db.sql
+                """)
+            }
+        }
+    }
+}
+
+def executeCommandViaSHH(commands) {
+    withCredentials([
+        string(credentialsId: 'SITE_ADDRESS', variable: 'SITE_ADDRESS'),
+        string(credentialsId: 'SITE_USER', variable: 'SITE_USER'),
+    ]) {
+        sshagent(credentials: ['SITE_CREDENTIALS']) {
+            sh "ssh " + SITE_USER + "@" + SITE_ADDRESS + " ${commands}"
+        }
+    }
+}
