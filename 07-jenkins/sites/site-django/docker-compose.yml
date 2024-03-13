@@ -15,12 +15,11 @@ services:
         volumes:
             - static_volume:/app/static
             - uploads_volume:/app/uploads
+            - configs_volume:/app/configs
         expose:
             - 8000
         env_file:
             - .env
-        environment:
-            - DJANGO_SEED_DATA
         depends_on:
             - db
     nginx:
@@ -37,3 +36,4 @@ volumes:
     mysql_db_volume:
     static_volume:
     uploads_volume:
+    configs_volume:

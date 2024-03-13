@@ -11,8 +11,9 @@ echo 'MySQL started!'
 python manage.py collectstatic --no-input --clear
 python manage.py migrate --noinput
 
-if [ "${DJANGO_SEED_DATA}" -eq 1 ]; then
+if [ ! -f 'configs/db-enabled' ]; then
     python manage.py seed_data
+    touch 'configs/db-enabled'
 fi
 
 exec "$@"
